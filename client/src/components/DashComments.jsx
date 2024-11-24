@@ -1,8 +1,8 @@
-import { Modal, Table, Button } from 'flowbite-react';
+import { Modal, Table, Button, Spinner } from 'flowbite-react';
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { HiOutlineExclamationCircle } from 'react-icons/hi';
-import { FaCheck, FaTimes } from 'react-icons/fa';
+import PropTypes from 'prop-types';
 
 export default function DashComments() {
   const { currentUser } = useSelector((state) => state.user);
@@ -10,47 +10,70 @@ export default function DashComments() {
   const [showMore, setShowMore] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [commentIdToDelete, setCommentIdToDelete] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   useEffect(() => {
     const fetchComments = async () => {
       try {
+        setLoading(true);
+        setError(null);
         const res = await fetch(`/api/comment/getcomments`);
         const data = await res.json();
+        
         if (res.ok) {
           setComments(data.comments);
-          if (data.comments.length < 9) {
-            setShowMore(false);
-          }
+          setShowMore(data.comments.length >= 9);
+        } else {
+          setError(data.message);
         }
       } catch (error) {
-        console.log(error.message);
+        setError('Failed to fetch comments');
+        console.error(error);
+      } finally {
+        setLoading(false);
       }
     };
-    if (currentUser.isAdmin) {
+
+    if (currentUser?.isAdmin) {
       fetchComments();
     }
-  }, [currentUser._id]);
+  }, [currentUser?._id]);
 
   const handleShowMore = async () => {
+    if (loadingMore) return;
+    
     const startIndex = comments.length;
     try {
+      setLoadingMore(true);
+      setError(null);
       const res = await fetch(
         `/api/comment/getcomments?startIndex=${startIndex}`
       );
       const data = await res.json();
+      
       if (res.ok) {
         setComments((prev) => [...prev, ...data.comments]);
-        if (data.comments.length < 9) {
-          setShowMore(false);
-        }
+        setShowMore(data.comments.length >= 9);
+      } else {
+        setError(data.message);
       }
     } catch (error) {
-      console.log(error.message);
+      setError('Failed to load more comments');
+      console.error(error);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
   const handleDeleteComment = async () => {
-    setShowModal(false);
+    if (deleteLoading) return;
+    
     try {
+      setDeleteLoading(true);
+      setError(null);
       const res = await fetch(
         `/api/comment/deleteComment/${commentIdToDelete}`,
         {
@@ -58,22 +81,46 @@ export default function DashComments() {
         }
       );
       const data = await res.json();
+      
       if (res.ok) {
         setComments((prev) =>
           prev.filter((comment) => comment._id !== commentIdToDelete)
         );
         setShowModal(false);
       } else {
-        console.log(data.message);
+        setError(data.message);
       }
     } catch (error) {
-      console.log(error.message);
+      setError('Failed to delete comment');
+      console.error(error);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
+  if (!currentUser?.isAdmin) {
+    return <p className='text-center py-3'>Access denied.</p>;
+  }
+
+  if (loading) {
+    return (
+      <div className='flex justify-center items-center min-h-screen'>
+        <Spinner size='xl' />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='text-center text-red-500 py-3'>
+        {error}
+      </div>
+    );
+  }
+
   return (
     <div className='table-auto overflow-x-scroll md:mx-auto p-3 scrollbar scrollbar-track-slate-100 scrollbar-thumb-slate-300 dark:scrollbar-track-slate-700 dark:scrollbar-thumb-slate-500'>
-      {currentUser.isAdmin && comments.length > 0 ? (
+      {comments.length > 0 ? (
         <>
           <Table hoverable className='shadow-md'>
             <Table.Head>
@@ -84,16 +131,31 @@ export default function DashComments() {
               <Table.HeadCell>UserId</Table.HeadCell>
               <Table.HeadCell>Delete</Table.HeadCell>
             </Table.Head>
-            {comments.map((comment) => (
-              <Table.Body className='divide-y' key={comment._id}>
-                <Table.Row className='bg-white dark:border-gray-700 dark:bg-gray-800'>
+            <Table.Body className='divide-y'>
+              {comments.map((comment) => (
+                <Table.Row 
+                  key={comment._id}
+                  className='bg-white dark:border-gray-700 dark:bg-gray-800'
+                >
                   <Table.Cell>
                     {new Date(comment.updatedAt).toLocaleDateString()}
                   </Table.Cell>
-                  <Table.Cell>{comment.content}</Table.Cell>
+                  <Table.Cell>
+                    <div className='max-w-xs truncate'>
+                      {comment.content}
+                    </div>
+                  </Table.Cell>
                   <Table.Cell>{comment.numberOfLikes}</Table.Cell>
-                  <Table.Cell>{comment.postId}</Table.Cell>
-                  <Table.Cell>{comment.userId}</Table.Cell>
+                  <Table.Cell>
+                    <div className='max-w-xs truncate'>
+                      {comment.postId}
+                    </div>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <div className='max-w-xs truncate'>
+                      {comment.userId}
+                    </div>
+                  </Table.Cell>
                   <Table.Cell>
                     <span
                       onClick={() => {
@@ -106,24 +168,26 @@ export default function DashComments() {
                     </span>
                   </Table.Cell>
                 </Table.Row>
-              </Table.Body>
-            ))}
+              ))}
+            </Table.Body>
           </Table>
           {showMore && (
             <button
               onClick={handleShowMore}
-              className='w-full text-teal-500 self-center text-sm py-7'
+              disabled={loadingMore}
+              className='w-full text-teal-500 self-center text-sm py-7 hover:underline disabled:opacity-50 disabled:cursor-not-allowed'
             >
-              Show more
+              {loadingMore ? 'Loading...' : 'Show more'}
             </button>
           )}
         </>
       ) : (
-        <p>You have no comments yet!</p>
+        <p className='text-center py-3'>No comments found.</p>
       )}
+      
       <Modal
         show={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={() => !deleteLoading && setShowModal(false)}
         popup
         size='md'
       >
@@ -135,10 +199,18 @@ export default function DashComments() {
               Are you sure you want to delete this comment?
             </h3>
             <div className='flex justify-center gap-4'>
-              <Button color='failure' onClick={handleDeleteComment}>
-                Yes, I'm sure
+              <Button 
+                color='failure' 
+                onClick={handleDeleteComment}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting...' : 'Yes, I\'m sure'}
               </Button>
-              <Button color='gray' onClick={() => setShowModal(false)}>
+              <Button 
+                color='gray' 
+                onClick={() => setShowModal(false)}
+                disabled={deleteLoading}
+              >
                 No, cancel
               </Button>
             </div>
@@ -148,3 +220,10 @@ export default function DashComments() {
     </div>
   );
 }
+
+DashComments.propTypes = {
+  currentUser: PropTypes.shape({
+    _id: PropTypes.string,
+    isAdmin: PropTypes.bool
+  })
+};

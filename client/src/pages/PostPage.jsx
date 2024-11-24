@@ -31,6 +31,8 @@ export default function PostPage() {
       } catch (error) {
         setError(true);
         setLoading(false);
+      
+
       }
     };
     fetchPost();

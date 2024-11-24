@@ -1,7 +1,8 @@
-import { Alert, Button, Modal, TextInput, Textarea } from 'flowbite-react';
+import { Alert, Button, Modal,  Textarea } from 'flowbite-react';
 import { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
+import PropTypes from 'prop-types';
 import Comment from './Comment';
 import { HiOutlineExclamationCircle } from 'react-icons/hi';
 
@@ -12,13 +13,16 @@ export default function CommentSection({ postId }) {
   const [comments, setComments] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [commentToDelete, setCommentToDelete] = useState(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (comment.length > 200) {
       return;
     }
     try {
+      setLoading(true);
       const res = await fetch('/api/comment/create', {
         method: 'POST',
         headers: {
@@ -35,9 +39,13 @@ export default function CommentSection({ postId }) {
         setComment('');
         setCommentError(null);
         setComments([data, ...comments]);
+      } else {
+        setCommentError(data.message);
       }
     } catch (error) {
       setCommentError(error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -57,11 +65,11 @@ export default function CommentSection({ postId }) {
   }, [postId]);
 
   const handleLike = async (commentId) => {
+    if (!currentUser) {
+      navigate('/sign-in');
+      return;
+    }
     try {
-      if (!currentUser) {
-        navigate('/sign-in');
-        return;
-      }
       const res = await fetch(`/api/comment/likeComment/${commentId}`, {
         method: 'PUT',
       });
@@ -94,22 +102,22 @@ export default function CommentSection({ postId }) {
 
   const handleDelete = async (commentId) => {
     setShowModal(false);
+    if (!currentUser) {
+      navigate('/sign-in');
+      return;
+    }
     try {
-      if (!currentUser) {
-        navigate('/sign-in');
-        return;
-      }
       const res = await fetch(`/api/comment/deleteComment/${commentId}`, {
         method: 'DELETE',
       });
       if (res.ok) {
-        const data = await res.json();
         setComments(comments.filter((comment) => comment._id !== commentId));
       }
     } catch (error) {
       console.log(error.message);
     }
   };
+
   return (
     <div className='max-w-2xl mx-auto w-full p-3'>
       {currentUser ? (
@@ -118,7 +126,7 @@ export default function CommentSection({ postId }) {
           <img
             className='h-5 w-5 object-cover rounded-full'
             src={currentUser.profilePicture}
-            alt=''
+            alt={currentUser.username}
           />
           <Link
             to={'/dashboard?tab=profile'}
@@ -146,13 +154,19 @@ export default function CommentSection({ postId }) {
             maxLength='200'
             onChange={(e) => setComment(e.target.value)}
             value={comment}
+            disabled={loading}
           />
           <div className='flex justify-between items-center mt-5'>
             <p className='text-gray-500 text-xs'>
               {200 - comment.length} characters remaining
             </p>
-            <Button outline gradientDuoTone='purpleToBlue' type='submit'>
-              Submit
+            <Button 
+              outline 
+              gradientDuoTone='purpleToBlue' 
+              type='submit'
+              disabled={loading || comment.length === 0}
+            >
+              {loading ? 'Submitting...' : 'Submit'}
             </Button>
           </div>
           {commentError && (
@@ -204,7 +218,7 @@ export default function CommentSection({ postId }) {
                 color='failure'
                 onClick={() => handleDelete(commentToDelete)}
               >
-                Yes, I'm sure
+                Yes, Im sure
               </Button>
               <Button color='gray' onClick={() => setShowModal(false)}>
                 No, cancel
@@ -216,3 +230,7 @@ export default function CommentSection({ postId }) {
     </div>
   );
 }
+
+CommentSection.propTypes = {
+  postId: PropTypes.string.isRequired,
+};

@@ -49,15 +49,16 @@ export default function Header() {
   };
 
   return (
-    <Navbar className='border-b-2'>
+    <Navbar className='border-b-2 bg- dark:bg-slate-900 '>
       <Link
         to='/'
-        className='self-center whitespace-nowrap text-sm sm:text-xl font-semibold dark:text-white'
+        className='self-center whitespace-nowrap text-sm sm:text-xl font-semibold text-black'
       >
         <span className='px-2 py-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-lg text-white'>
-          Sahand's
+        ZETA
         </span>
-        Blog
+       Blogs
+       
       </Link>
       <form onSubmit={handleSubmit}>
         <TextInput
@@ -75,7 +76,7 @@ export default function Header() {
       <div className='flex gap-2 md:order-2'>
         <Button
           className='w-12 h-10 hidden sm:inline'
-          color='gray'
+          color='grey'
           pill
           onClick={() => dispatch(toggleTheme())}
         >
@@ -110,8 +111,8 @@ export default function Header() {
         )}
         <Navbar.Toggle />
       </div>
-      <Navbar.Collapse>
-        <Navbar.Link active={path === '/'} as={'div'}>
+      <Navbar.Collapse >
+        <Navbar.Link active={path === '/'} as={'div'} className="">
           <Link to='/'>Home</Link>
         </Navbar.Link>
         <Navbar.Link active={path === '/about'} as={'div'}>
